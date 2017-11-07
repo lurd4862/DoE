@@ -1,0 +1,147 @@
+The most promising type of DoE for our purposes__
+  Response Surface Method Designs
+    These are special designs that are used to determine the settings of the factors to achieve an optimum value of the response.
+
+  Benchmark DoE approach is full factorial design - how does surface response design trump this method in terms of costs, speed and the desired outcome (treatment effect)
+
+DoE dictionary__
+  Response - dependent or outcome variable under investigation
+  Factor - a independent variable causing a change in the response
+  Level - a possible value of a factor variable
+  Treatment - a particular combination of all the levels within an experiment, i.e. a DoE is formed from n combinatorial treatments which are randomly assigned
+  Balanced - when the DoE measures the same number of responses for each treatment, e.g. 3 treatments on 9 test subjects leads to a balanced 3 responses to each treatment. (this may be difficult to achieve through pure randomization)
+  Replicates - repeated observations at a given treatment, e.g. 3 replicates each in above example
+  x y factorial design - when an experiment has 2 factors with x and y levels respectively, i.e. x times y treatment combinations can possibly be run
+  Full factorial design - when all x times y treatment combinations are used
+  Fractional factorial design - when only some fraction of the x y treatments are used
+  OA - Orthogonal Array
+  D-optimization - minimizes the hypervolume of the confidence region of the coefficient vector. This means that the absolute correlations are more evenly distributed between treatments
+  Blocking - is a principle of accounting for known relevant but uninteresting influences. Include the known influences as block factors in your DoE
+  Randomization - hierarchy levels need to be accounted for in the analysis by assigning each treatment at random (so as to avoid possible bias in particular traits choosing(anti-selection) the levels and invalidating the measurement of effect). e.g. measuring best practices when growing crops but allowing people to chose the treatment they want to try will lead to better farmers choosing better treatments (or even worse the opposite) through intuition and creating biased results
+  Sequential DoE - start small DoE test via screening designs to find most important factors, then follow up experiments with higher resolution factorial designs
+
+Types of designs__
+  One factor designs
+    They have one factor only, with n levels
+
+  Factorial designs
+    General full factorial designs have a treatment for all combinations of the levels of each treatments
+
+    Two level full factorial designs have max 2 levels in each of the n factors (most likely good candidates by professional intuition)
+
+    Two level fractional factorial designs have two levels on a subset m of the n factors we wish to investigate
+
+    Plackett-Burman Designs are 2 level fractional designs where only treatments and replications are tried to get a result not considering/measuring interaction effects (i.e. assumed orthogonal/i.i.d factors)
+
+    Taguchis Orthogonal Arrays, a type of highly fractional design that measures only the main treatment effects
+
+  Response Surface Method Designs are used to find the optimal treatment to maximize the treatment effect
+
+  Reliability DoE, used in combination with reliability or life distributions to investigate the treatment effects that affect longevity
+
+Summary of different types of DoE__
+http://www.weibull.com/hotwire/issue85/relbasics85.htm
+
+UseR slides on DoE__
+https://www.r-project.org/conferences/useR-2011/TalkSlides/Invited/Gromping-Design_of_Experiments.pdf
+
+UseR video of the same author__
+https://www.youtube.com/watch?v=2S-k_j--3dk
+
+Things we learned from the video__
+ Interesting Obama campaign example (full factorial design)
+  Used a *full factorial design* on 4 buttons and 6 pictures
+    This lead to 6x4 = 24 combinations of tests that were randomly assigned to the ~300k+ people
+    e-mails are cheap and the experiment can be run fast and adjustments made in conjunction
+
+ Obama campaigns often used many simple runs with many replications in each treatment (simplicity I think referred to number of factor levels)
+  Human behavior leads to a lot of variability (more than say DoE on engineering equipment/processes)
+  Results were needed quickly
+  Cheap experimental designs were required
+  Sequential experimentation was easy
+
+ Biotechnological experiments
+  Dataset VSGFS imported from R package DoE.base
+  Less variability present
+  Less time pressure during trials
+  More expensive to run experiments
+  Logistics make sequential experimentation difficult (since it require you to actually run the test more than once)
+
+ Tobacco cell cultures
+  Multiple responses (biomass, geraniol content etc.)
+  Too expensive (full factorial = ~600 treatments), replicated baseline only (confirm prior beliefs) and chose 72 treatments
+  Run order was randomized but not replicated, i.e. they had baseline + 72 treatments and people were assigned at random only once per treatment
+  Used Orthogonal Array (OA) using the DoE.base package in R
+    Assumes all main affects can be estimated independently
+    Column selection was optimized using DoE.base::oa.design
+      confounding of main effects with 2 factor interactions minimal
+      confounding among 2 factor interactions of main effects with 3 factor interactions subsequently minimized
+    No specific model assumed, only prioritized main effect estimation
+    Tested D-optimal design for the 72 treatments using package AlgDesign using Dopt.design from the DoE.wrapper
+      D-optimization minimizes the hypervolume of the confidence region of the coefficient vector. This means that the absolute correlations are more evenly distributed between treatments
+    Covariance matrix of coefficient estimates depends on the coding of factors!
+      You need orthogonal coding with columns normalized such that in a full factorial all model coefficients:
+        would have the same variance
+        and would be uncorrelated to each other
+          Use contr.XuWu or contr.XuWuPoly in package DoE.base
+      If such recoding of factors is not applied the confounding pattern is dominated by artificial coding dependencies
+
+  Ideal procedure: sequential
+    Start with screening designs to pick best factors (fractional design) - DoE.base, (FrF2, pb), BHH2
+    Follow up experiments with higher resolution factorial designs - DoE.base, (FrF2, FrF2), planor
+  For quantitative factors:
+    2-level fatorial design possibly with center points (FrF2)
+    Possibly move towards optimal parameters using steepest ascent (rsm)
+    Response surface designs in the promising regions for quantitative factors (rsm, rsm)
+
+Insights__
+  Cheap costs usually mean higher number of replications with many repeated experiments to optimize results
+  Expensive designs usually followed baseline runs + a few experimental runs (unreplicated). That means given some baseline runs (target or benchmark for all levels)
+  A DoE may have multiple responses
+  DoE.base package in R can run OA DoE
+  Column selection can be optimized using DoE.base::oa.design
+  D-optimization can be performed through package AlgDesign using Dopt.design from the DoE.wrapper
+  Coding of factors matter! (If you have more than 2 levels in a factor) You need orthogonal coding with columns normalized such that in a full factorial all model coefficients:
+    would have the same variance
+    and would be uncorrelated to each other
+
+
+Summary of slides__
+ Industrial use cases:
+ Most often needed: fractional factorial 2-level designs    (FrF2)
+ Also sometimes needed: orthogonal arrays                   (Doe.base)
+
+ Questions to be answered by experimental design:
+  Which type of design
+  Established process for measuring the response
+  Are n runs enough - precision considerations
+  Can we afford n runs
+
+ Principles of DoE:
+  Using blocks - what can you randomize and what can you not
+    Randomization: balance out unknown influences
+    blocking: balance out known influences, reduce error variability
+
+  Using replication: don't generalize one-offs
+    Repeated measurements are NOT replications
+    Balanced factorial experiments provide intrinsic replication
+      this is more efficient than one-factor-at-a-time comparisons
+
+  Analysis follows design
+    e.g. split-plot designs
+
+  Proceed sequentially
+    smaller initial screening experiments
+    response surface experiments with few relevant factors later
+    second-order approximation will often be good
+
+
+Book and course__
+ Github course on the book Design and Analysis of Experiments (8th ed.) including a pdf copy of the book itself (lol):
+ https://github.com/kyclark/stat571/tree/master/hw01
+
+Website with datasets__
+ www.wiley.com/college/montgomery.
+
+Link to datasets__
+ http://bcs.wiley.com/he-bcs/Books?action=resource&bcsId=10790&itemId=1119320933&resourceId=42686
