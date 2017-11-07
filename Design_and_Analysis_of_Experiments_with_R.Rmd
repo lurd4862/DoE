@@ -1,0 +1,181 @@
+---
+title: "Design and Analysis of Experiments with R"
+author: "Stefan Fouchè"
+date: "07 November 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This document will cover in depth the use of DoE experiments in R! We will focus our attention to measuring treatment effects, not variances.  
+
+Based on the work:  
+_Lawson, John. Design and Analysis of Experiments with R. Chapman and Hall/CRC, 20141217. VitalBook file._
+
+![](Pictures/Intro.png)
+
+# Definitions
+
+* Experiment (also called a Run) is an action where the experimenter changes at least one of the variables being studied and then observes the effect of his or her actions(s). Note the passive collection of observational data is not experimentation.  
+
+* Experimental Unit is the item under study upon which something is changed. This could be raw materials, human subjects, or just a point in time.  
+
+* Sub-Sample, Sub-Unit, or Observational Unit When the experimental unit is split, after the action has been taken upon it, this is called a sub-sample or sub-unit. Sometimes it is only possible to measure a characteristic separately for each sub-unit; for that reason they are often called observational units. Measurements on sub-samples, or sub-units of the same experimental unit, are usually correlated and should be averaged before analysis of data rather than being treated as independent outcomes. When sub-units can be considered independent and there is interest in determining the variance in sub-sample measurements, while not confusing the F-tests on the treatment factors, the mixed model described in Section 5.8 should be used instead of simply averaging the sub-samples.  
+
+* Independent Variable (Factor or Treatment Factor) is one of the variables under study that is being controlled at or near some target value, or level, during any given experiment. The level is being changed in some systematic way from run to run in order to determine what effect it has on the response(s).  
+
+* Background Variable (also called a Lurking Variable) is a variable that the experimenter is unaware of or cannot control, and which could have an effect on the outcome of the experiment. In a well-planned experimental design, the effect of these lurking variables should balance out so as to not alter the conclusion of a study.  
+
+* Dependent Variable (or the Response denoted by Y) is the characteristic of the experimental unit that is measured after each experiment or run. The magnitude of the response depends upon the settings of the independent variables or factors and lurking variables.  
+
+* Effect is the change in the response that is caused by a change in a factor or independent variable. After the runs in an experimental design are conducted, the effect can be estimated by calculating it from the observed response data. This estimate is called the calculated effect. Before the experiments are ever conducted, the researcher may know how large the effect should be to have practical importance. This is called a practical effect or the size of a practical effect.  
+
+* Replicate runs are two or more experiments conducted with the same settings of the factors or independent variables, but using different experimental units. The measured dependent variable may differ among replicate runs due to changes in lurking variables and inherent differences in experimental units.  
+
+* Duplicates refer to duplicate measurements of the same experimental unit from one run or experiment. The measured dependent variable may vary among duplicates due to measurement error, but in the analysis of data these duplicate measurements should be averaged and not treated as separate responses.  
+
+* Experimental Design is a collection of experiments or runs that is planned in advance of the actual execution. The particular runs selected in an experimental design will depend upon the purpose of the design.  
+
+* Confounded Factors arise when each change an experimenter makes for one factor, between runs, is coupled with an identical change to another factor. In this situation it is impossible to determine which factor causes any observed changes in the response or dependent variable.  
+
+* Biased Factor results when an experimenter makes changes to an independent variable at the precise time when changes in background or lurking variables occur. When a factor is biased it is impossible to determine if the resulting changes to the response were caused by changes in the factor or by changes in other background or lurking variables.  
+
+* Experimental Error is the difference between the observed response for a particular experiment and the long run average of all experiments conducted at the same settings of the independent variables or factors. The fact that it is called “error” should not lead one to assume that it is a mistake or blunder. Experimental errors are not all equal to zero because background or lurking variables cause them to change from run to run. Experimental errors can be broadly classified into two types: bias error and random error. Bias error tends to remain constant or change in a consistent pattern over the runs in an experimental design, while random error changes from one experiment to another in an unpredictable manner and average to be zero. The variance of random experimental errors can be obtained by including replicate runs in an experimental design.  
+
+# Condensed theory
+
+DoE is used to distinguish between correlation and causality in a way that is cost  efficient and accounts for most confounding effects and lurker effects.  
+
+Sequential strategies are used to determine what factors are most influencial and after that the changes in factors are quantified until finally optimal operating conditions are determined (most appropriate factor states to accomplish maximum treatment effect)  
+
+_DoE Workflow_
+
+![](Pictures/DoE_workflow.png)
+
+An effective experimental design will ensure the following:  
+
+- A *clear objective*  
+- An *appropriate design* plan that gaurantees unconfounded and unbiased factor effects    
+- A plan for *data collection* to enable estimation of variance and experimental error 
+- A stipulation to collect enough data to satisfy the objectives  
+
+In order to achieve this we must: 
+
+1. _Define objectives_  
+2. _identify experimental units_  
+3. _Define a meaningful and measurable respnse or dependent variable_  
+4. _List the independent and lurking vbariables_  
+5. _Run pilot tests_  
+6. _Make a flow diagram of the experimental procedure_  
+7. _Choose the experimental design_  
+8. _Determine number of replicants_  
+9. _Randomize the experimental conditions to experimental units_  
+10. _Describe a method for data analysis with tested dummy data_  
+11. _Timetable and budget for resources_  
+
+In particular it's important to note that the time we have to run the experiment and the cost budget for the experiment will heavily impact the type of experimental design
+
+# When to use which design
+
+Let's summarise the theory to understand when we should use which experimental design:
+
+![](Pictures/Which_design.png)
+  
+Clearly our very first split depends on what we wish to investigate, the variances or the effects of different factors.
+
+**Design Name Acronym Index**
+
+RSE — random sampling experiment
+
+FRSE — factorial random sampling experiment
+
+NSE — nested sampling experiment
+13 14
+SNSE — staggered nested sampling experiment
+
+CRD — completely randomized design
+
+CRFD — completely randomized factorial design
+
+CRFF — completely randomized fractional factorial
+
+PB — Plackett-Burman design
+
+OA — orthogonal array design
+
+CRSP — completely randomized split plot
+
+RSSP — response surface split plot
+
+EESPRS — equivalent estimation split-plot response surface
+
+SLD — simplex lattice design
+
+SCD — simplex centroid design
+
+EVD — extreme vertices design
+
+SPMPV — split-plot mixture process variable design
+
+RCB — randomized complete block
+
+GCB — generalized complete block
+
+RCBF — randomized complete block factorial
+
+RBSP — randomized block split plot
+
+PBIB — partially balanced incomplete block
+
+BTIB — balanced treatment incomplete block
+
+BIB — balance incomplete block
+
+BRS — blocked response surface
+
+PCBF — partially confounded blocked factorial
+
+CCBF — completely confounded blocked factorial
+
+LSD — Latin-square design
+
+RCD — row-column design
+
+## Study factor effects
+
+### Completely randomized design (CRD)
+
+In completely randomized designs we consider only a single factor. For each possible state of this factor we have a treatment or group. The total number of experimental units n is equal to the number of treatments * the number of replications in of each treatment.
+
+**Replications are vital!**   
+Without replications we couldn't tell if the treatment effect was real or due to random manifistation of unmeasured effects.
+
+**Remember**:  
+By randomly assigning treatments and replications we `balance out` the effects we are not aware of (law of large numbers fighting off lurker effects). We therefore assume any affects we do not account for are equally distributed accross treatments on average.  
+
+**Sub-samples are not replicates!**  
+Having two independant tasters taste/rate the same cake does not mean you have two replicates of that particular cake's treatment.  
+
+#### Example
+
+Test bread rise height caused by factor time:  
+
+We test 3 values for time with 4 replicates each (12 experimental units of 3 treatments with 4 replicates)  
+
+```{r}
+set.seed(234789)
+f <- factor(rep(c(35,40,45),each = 4))
+randomized_times <- sample(f,12)
+allocation <- 1:12
+design <- data.frame(allocated_loaf = allocation, time = randomized_times)
+design
+```
+
+#### Linear model used for CRD inference
+
+Obviously we are only making inference about the mean effect within each treatment given the replications.
+$$Y_{ij} = \mu_i + \epsilon_{ij} $$
