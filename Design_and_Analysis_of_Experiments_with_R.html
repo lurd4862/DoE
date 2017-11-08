@@ -9,7 +9,7 @@
 <meta name="generator" content="pandoc" />
 
 
-<meta name="author" content="Stefan Fouchè" />
+<meta name="author" content="Stefan FouchÃ¨" />
 
 <meta name="date" content="2017-11-07" />
 
@@ -118,7 +118,7 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Design and Analysis of Experiments with R</h1>
-<h4 class="author"><em>Stefan Fouchè</em></h4>
+<h4 class="author"><em>Stefan FouchÃ¨</em></h4>
 <h4 class="date"><em>07 November 2017</em></h4>
 
 </div>
@@ -149,7 +149,7 @@ $(document).ready(function () {
 <li><p>Experimental Design is a collection of experiments or runs that is planned in advance of the actual execution. The particular runs selected in an experimental design will depend upon the purpose of the design.</p></li>
 <li><p>Confounded Factors arise when each change an experimenter makes for one factor, between runs, is coupled with an identical change to another factor. In this situation it is impossible to determine which factor causes any observed changes in the response or dependent variable.</p></li>
 <li><p>Biased Factor results when an experimenter makes changes to an independent variable at the precise time when changes in background or lurking variables occur. When a factor is biased it is impossible to determine if the resulting changes to the response were caused by changes in the factor or by changes in other background or lurking variables.</p></li>
-<li><p>Experimental Error is the difference between the observed response for a particular experiment and the long run average of all experiments conducted at the same settings of the independent variables or factors. The fact that it is called “error” should not lead one to assume that it is a mistake or blunder. Experimental errors are not all equal to zero because background or lurking variables cause them to change from run to run. Experimental errors can be broadly classified into two types: bias error and random error. Bias error tends to remain constant or change in a consistent pattern over the runs in an experimental design, while random error changes from one experiment to another in an unpredictable manner and average to be zero. The variance of random experimental errors can be obtained by including replicate runs in an experimental design.</p></li>
+<li><p>Experimental Error is the difference between the observed response for a particular experiment and the long run average of all experiments conducted at the same settings of the independent variables or factors. The fact that it is called âerrorâ should not lead one to assume that it is a mistake or blunder. Experimental errors are not all equal to zero because background or lurking variables cause them to change from run to run. Experimental errors can be broadly classified into two types: bias error and random error. Bias error tends to remain constant or change in a consistent pattern over the runs in an experimental design, while random error changes from one experiment to another in an unpredictable manner and average to be zero. The variance of random experimental errors can be obtained by including replicate runs in an experimental design.</p></li>
 </ul>
 </div>
 <div id="condensed-theory" class="section level1">
@@ -205,33 +205,34 @@ $(document).ready(function () {
 </div>
 <p>Clearly our very first split depends on what we wish to investigate, the variances or the effects of different factors.</p>
 <p><strong>Design Name Acronym Index</strong></p>
-<p>RSE — random sampling experiment</p>
-<p>FRSE — factorial random sampling experiment</p>
-<p>NSE — nested sampling experiment 13 14 SNSE — staggered nested sampling experiment</p>
-<p>CRD — completely randomized design</p>
-<p>CRFD — completely randomized factorial design</p>
-<p>CRFF — completely randomized fractional factorial</p>
-<p>PB — Plackett-Burman design</p>
-<p>OA — orthogonal array design</p>
-<p>CRSP — completely randomized split plot</p>
-<p>RSSP — response surface split plot</p>
-<p>EESPRS — equivalent estimation split-plot response surface</p>
-<p>SLD — simplex lattice design</p>
-<p>SCD — simplex centroid design</p>
-<p>EVD — extreme vertices design</p>
-<p>SPMPV — split-plot mixture process variable design</p>
-<p>RCB — randomized complete block</p>
-<p>GCB — generalized complete block</p>
-<p>RCBF — randomized complete block factorial</p>
-<p>RBSP — randomized block split plot</p>
-<p>PBIB — partially balanced incomplete block</p>
-<p>BTIB — balanced treatment incomplete block</p>
-<p>BIB — balance incomplete block</p>
-<p>BRS — blocked response surface</p>
-<p>PCBF — partially confounded blocked factorial</p>
-<p>CCBF — completely confounded blocked factorial</p>
-<p>LSD — Latin-square design</p>
-<p>RCD — row-column design</p>
+<p>RSE - random sampling experiment</p>
+<p>FRSE - factorial random sampling experiment</p>
+<p>NSE - nested sampling experiment</p>
+<p>SNSE - staggered nested sampling experiment</p>
+<p>CRD - completely randomized design</p>
+<p>CRFD - completely randomized factorial design</p>
+<p>CRFF - completely randomized fractional factorial</p>
+<p>PB - Plackett-Burman design</p>
+<p>OA - orthogonal array design</p>
+<p>CRSP - completely randomized split plot</p>
+<p>RSSP - response surface split plot</p>
+<p>EESPRS - equivalent estimation split-plot response surface</p>
+<p>SLD - simplex lattice design</p>
+<p>SCD - simplex centroid design</p>
+<p>EVD - extreme vertices design</p>
+<p>SPMPV - split-plot mixture process variable design</p>
+<p>RCB - randomized complete block</p>
+<p>GCB - generalized complete block</p>
+<p>RCBF - randomized complete block factorial</p>
+<p>RBSP - randomized block split plot</p>
+<p>PBIB - partially balanced incomplete block</p>
+<p>BTIB - balanced treatment incomplete block</p>
+<p>BIB - balance incomplete block</p>
+<p>BRS - blocked response surface</p>
+<p>PCBF - partially confounded blocked factorial</p>
+<p>CCBF - completely confounded blocked factorial</p>
+<p>LSD - Latin-square design</p>
+<p>RCD - row-column design</p>
 <div id="study-factor-effects" class="section level2">
 <h2>Study factor effects</h2>
 <div id="completely-randomized-design-crd" class="section level3">
@@ -269,9 +270,12 @@ design</code></pre>
 </div>
 <div id="linear-model-used-for-crd-inference" class="section level4">
 <h4>Linear model used for CRD inference</h4>
-<p>Obviously we are only making inference about the mean effect within each treatment given the replications. <span class="math display">\[\begin{aligned}
-Y_{ij} = \mu_i + \epsilon_{ij} 
-\end{aligned}\]</span></p>
+<p>Obviously we are only making inference about the mean effect within each treatment given the replications:<br />
+<strong>Cell mean model</strong><br />
+<span class="math display">\[Y_{ij} = \mu_i + \epsilon_{ij} \]</span> A more useful representation:<br />
+<strong>Effects model</strong><br />
+<span class="math display">\[Y_{ij} = \mu + \tau_i + \epsilon_{ij} \]</span><br />
+This formulation is more useful because <span class="math inline">\(\tau_i\)</span> is interpreted</p>
 </div>
 </div>
 </div>

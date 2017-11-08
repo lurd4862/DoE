@@ -89,61 +89,61 @@ Clearly our very first split depends on what we wish to investigate, the varianc
 
 **Design Name Acronym Index**
 
-RSE — random sampling experiment
+RSE - random sampling experiment
 
-FRSE — factorial random sampling experiment
+FRSE - factorial random sampling experiment
 
-NSE — nested sampling experiment
-13 14
-SNSE — staggered nested sampling experiment
+NSE - nested sampling experiment
 
-CRD — completely randomized design
+SNSE - staggered nested sampling experiment
 
-CRFD — completely randomized factorial design
+CRD - completely randomized design
 
-CRFF — completely randomized fractional factorial
+CRFD - completely randomized factorial design
 
-PB — Plackett-Burman design
+CRFF - completely randomized fractional factorial
 
-OA — orthogonal array design
+PB - Plackett-Burman design
 
-CRSP — completely randomized split plot
+OA - orthogonal array design
 
-RSSP — response surface split plot
+CRSP - completely randomized split plot
 
-EESPRS — equivalent estimation split-plot response surface
+RSSP - response surface split plot
 
-SLD — simplex lattice design
+EESPRS - equivalent estimation split-plot response surface
 
-SCD — simplex centroid design
+SLD - simplex lattice design
 
-EVD — extreme vertices design
+SCD - simplex centroid design
 
-SPMPV — split-plot mixture process variable design
+EVD - extreme vertices design
 
-RCB — randomized complete block
+SPMPV - split-plot mixture process variable design
 
-GCB — generalized complete block
+RCB - randomized complete block
 
-RCBF — randomized complete block factorial
+GCB - generalized complete block
 
-RBSP — randomized block split plot
+RCBF - randomized complete block factorial
 
-PBIB — partially balanced incomplete block
+RBSP - randomized block split plot
 
-BTIB — balanced treatment incomplete block
+PBIB - partially balanced incomplete block
 
-BIB — balance incomplete block
+BTIB - balanced treatment incomplete block
 
-BRS — blocked response surface
+BIB - balance incomplete block
 
-PCBF — partially confounded blocked factorial
+BRS - blocked response surface
 
-CCBF — completely confounded blocked factorial
+PCBF - partially confounded blocked factorial
 
-LSD — Latin-square design
+CCBF - completely confounded blocked factorial
 
-RCD — row-column design
+LSD - Latin-square design
+
+RCD - row-column design
 
 ## Study factor effects
 
@@ -177,5 +177,15 @@ design
 
 #### Linear model used for CRD inference
 
-Obviously we are only making inference about the mean effect within each treatment given the replications.
+Obviously we are only making inference about the mean effect within each treatment given the replications:  
+**Cell mean model**  
 $$Y_{ij} = \mu_i + \epsilon_{ij} $$
+A more useful representation:  
+**Effects model**  
+$$Y_{ij} = \mu + \tau_i + \epsilon_{ij} $$  
+This formulation is more useful because $\tau_i$ is interpreted as the difference of the mean within treatment $i$ and the overall average.
+
+
+
+
+
