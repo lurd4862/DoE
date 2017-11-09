@@ -7,6 +7,14 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+if(!require(daewr)){
+  install.packages("daewr")
+}
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+}
+  library(daewr)
+  library(tidyverse)
 ```
 
 # Introduction
@@ -185,7 +193,53 @@ A more useful representation:
 $$Y_{ij} = \mu + \tau_i + \epsilon_{ij} $$  
 This formulation is more useful because $\tau_i$ is interpreted as the difference of the mean within treatment $i$ and the overall average.
 
+If the design is executed properly the log likelihood function will be maximised if we minimise the sum of squares of residuals (linear regression).
 
+**BUT** in R the `lm()` function will omit the first factor $\tau_1$ and derive coefficients relative to $\mu + \tau_1$:
 
+<!-- First we turn the design into its matrix notation   -->
 
+```{r}
+bread_example <- daewr::bread
+
+bread_example %>% lm(formula = height~time) %>% summary
+```
+
+So we can see the lm() function did not derive a coefficient for the time = 35 factor level. In this call the intercept is interpreted as $\mu + \tau_1$ and the other factor levels are all evaluated relative to this intercept:
+
+![](Pictures/lm_coeffiecients.png)
+
+Obviously from this equation it's easy to derive e.g. $\mu + \tau_2$ by adding the 1st and second coefficients together...
+
+#### Hypothesis test for No Treatment Effect
+
+Now let's test if the treatment (changing the time factor) has any affect on the response variable (the height of the baked bread):
+
+$$\begin{align}
+H_0:& \tau_i = \tau_j \  \forall \  {i,j} \\
+H_1:& \textrm{atleast 2 } \tau_i \textrm{'s differ} 
+\end{align}$$
+
+```{r}
+bread_example %>% aov(formula = height~time) %>% summary
+```
+
+So we can see that the p-value here is the same as the p-value in the lm() summary and since it is < 0.05 we can safely reject $H_0$ and say different time factor levels had a significant impact on the response variable height.
+
+#### Verify linearity assumption
+
+Of course, using a lm() model assumes linearity and we should validate this assumed relationship between time and height:
+
+```{r}
+qqnorm(y = bread_example %>% lm(formula = height~time) %>% residuals)
+lines(x= seq(-2,2,length.out = 10),y= seq(-2,2,length.out = 10), lty = "dotted")
+```
+
+In this case we do seem to have a fairly normal response relationship but with som variability in the lower corner. Consider that we only have 12 points.
+
+A more serious violation of assumption is heterogeneity of variances. In general when the linearity assumption is violated so will the homogeniety of variances assumption. To remedy this we can apply a transformation to the data to reconsile the linearity assumption.
+
+#### Box-Cox Power Transformations
+
+These transformations ensure that $\sigma \propto \mu^{1 - \lambda}$
 
