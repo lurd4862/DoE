@@ -13,8 +13,12 @@ if(!require(daewr)){
 if(!require(tidyverse)){
   install.packages("tidyverse")
 }
+if(!require(MASS)){
+  install.packages("MASS")
+}
   library(daewr)
   library(tidyverse)
+  library(MASS)
 ```
 
 # Introduction
@@ -187,10 +191,11 @@ design
 
 Obviously we are only making inference about the mean effect within each treatment given the replications:  
 **Cell mean model**  
-$$Y_{ij} = \mu_i + \epsilon_{ij} $$
+$Y_{ij} = \mu_i + \epsilon_{ij}$ 
+  
 A more useful representation:  
 **Effects model**  
-$$Y_{ij} = \mu + \tau_i + \epsilon_{ij} $$  
+$Y_{ij} = \mu + \tau_i + \epsilon_{ij}$  
 This formulation is more useful because $\tau_i$ is interpreted as the difference of the mean within treatment $i$ and the overall average.
 
 If the design is executed properly the log likelihood function will be maximised if we minimise the sum of squares of residuals (linear regression).
@@ -232,7 +237,6 @@ Of course, using a lm() model assumes linearity and we should validate this assu
 
 ```{r}
 qqnorm(y = bread_example %>% lm(formula = height~time) %>% residuals)
-lines(x= seq(-2,2,length.out = 10),y= seq(-2,2,length.out = 10), lty = "dotted")
 ```
 
 In this case we do seem to have a fairly normal response relationship but with som variability in the lower corner. Consider that we only have 12 points.
@@ -241,5 +245,278 @@ A more serious violation of assumption is heterogeneity of variances. In general
 
 #### Box-Cox Power Transformations
 
+** When variation is relative to the mean observation within each treatment **
+
+This transformation will change the data so that it is distributed normally. Normally distributed data has honogeneous variances    
+
 These transformations ensure that $\sigma \propto \mu^{1 - \lambda}$
+
+To find $\lambda$ we can do:
+
+```{r}
+box_cox <- boxcox(aov(bread_example,formula = height~time))
+lambda = box_cox$x[which(box_cox$y == box_cox$y %>% max)]
+lambda
+```
+
+Now we transform the data:  
+
+```{r}
+bread_example_transformed <- 
+  bread_example %>% 
+  mutate(height = height^lambda)
+```
+
+Let's redo the normality validation on residuals: 
+
+```{r}
+qqnorm(y = bread_example_transformed %>% lm(formula = height~time) %>% residuals())
+```
+
+And if we look at the hypothesis test with the now normally distributed data:
+
+```{r}
+bread_example_transformed %>% aov(formula = height~time) %>% summary
+```
+
+Our new p-value is smaller which indicates that an observation as or more extreme than what we have is even more unlikely under the null hypothesis that there is no treatment effect.
+
+#### Distributional transformations
+
+** When variation is relative to the mean observation within each treatment **
+
+An alternative to box-cox power transformation
+
+![](Pictures/Distributional_transformations.png)
+
+OK, well let's use the lognormal transformation and see the effect on the anova:
+
+```{r}
+bread_example_lognormal <- 
+  bread_example %>% 
+  mutate(height = log(height))
+```
+
+Let's redo the normality validation on residuals: 
+
+```{r}
+qqnorm(y = bread_example_lognormal %>% lm(formula = height~time) %>% residuals())
+```
+
+In this case we seem to fit the tail distribution better...  
+
+And if we look at the hypothesis test with the now normally distributed data:
+
+```{r}
+bread_example_lognormal %>% aov(formula = height~time) %>% summary
+```
+
+The p-value is again shifted towards 0.0258 which indicates with higher certainty that we reject the null hypothesis
+
+### Alternatives to least squares regression
+
+#### Weighted linear model
+
+When we believe the **heterogeneous variances are not related to the treatment mean** we can use a weighted least squares
+
+Use sd() as weights within treatments:  
+
+```{r}
+
+bread_example_Weighted <- 
+    bread_example %>% 
+  group_by(time) %>% 
+  mutate(sd_treatment = 1/sd(height))
+bread_example_Weighted
+```
+
+Now that we have the weights for each treatment we can use it in a weighted OLS:  
+
+```{r}
+bread_example_Weighted %>% lm(formula = height~time,weights = bread_example_Weighted$sd_treatment) %>% summary
+```
+
+This gives us a p-value of 0.02006 which is very similar to the other transformed methods  
+
+#### Creating a weighted OLS function
+
+So to generalize this for simple case of CRD:
+
+```{r}
+weighted_ols_anova <-  function(df, formula_, factor, response) {
+  factor_enq <- dplyr::enquo(factor)
+  response_enq <- dplyr::enquo(response)
+  # factor_quo <- dplyr::quo(factor)
+  # response_quo <- dplyr::quo(response)
+  df <- 
+    df %>% 
+  group_by(!!factor_enq) %>%
+  mutate(sd_treatment = 1/sd(!!response_enq)) %>% 
+    ungroup
+  
+   # y = df %>% select(!!response_enq) %>% flatten_dbl
+   # x = df %>% select(!!factor_enq) %>% flatten_dbl
+  
+    df %>% lm(formula =  formula_, weights = sd_treatment) %>% anova
+    # df %>% lm(y = y, x = x, weights = sd_treatment) %>% anova
+
+  # return(df)
+}
+
+weighted_ols_anova(bread,height~time,time,height)
+```
+
+#### Generalized linear models
+
+**Pol data using logistic link function assuming multinomial distribution**
+
+Participants were asked to rank a treatment from 1 to 5  
+
+Data:
+
+```{r}
+mod_full <- MASS::polr(data = daewr::teach,
+                   formula = score ~ method,
+                   weight = count)
+
+mod_reduced <- MASS::polr(data = daewr::teach,
+                   formula = score ~ 1,
+                   weight = count)
+
+anova(mod_full,mod_reduced)
+
+```
+
+The reduced model predicts assuming only a global mean which conceptually means:  
+$y_{i,j} = \mu + \epsilon_{i,j} \ \ \  VS \ \ \  y_{i,j}=\mu + \tau_i +  \epsilon_{i,j}$
+
+This shows that using different methods does make a difference compared to no particular method used. Because the p-value here rejects the null hypothesis that the two models are the same and therefore rejects the null hypothesis that all treatment effects are the same: $\mu_i = \mu_j \  \forall \  {i,j}$
+
+**How do we measure treatment effect?**  
+
+Let's visualize the scores by method used
+
+```{r}
+# Predicted <- 
+#   daewr::teach %>% 
+#   mutate(predicted_score = mod_full %>% predict)
+
+# Predicted %>% 
+#   group_by(method) %>% 
+#   nest %>% 
+#   mutate(Histogram = data %>% map(~hist(.$score))) %>% 
+#   .Histogram
+
+daewr::teach %>% 
+  ggplot()+
+  geom_bar(aes(x = score,y = count),stat = "identity")+
+  facet_wrap(~method)+
+  ggtitle("Distribution of scores by method",subtitle = "Method 3 appears to outperform")
+
+daewr::teach %>% 
+  mutate_if(is.factor,as.numeric) %>% 
+  group_by(method) %>% 
+  summarise(mean_score = sum(score*count)/sum(count),
+            Total_votes = sum(count))
+```
+
+We can see that on average the 3rd treatment here would outperform the rest of the treatment groups from this designed experiment.
+
+**Test for assumption violations**
+
+We can again repeat the usual battery of tests but let's first automate this these tests to make it easy:  
+
+#### Assumptions validation function
+
+```{r}
+Validate_assumptions <- function(df, formula_ = NULL, model, factor, response) {
+  qq_plot <- 
+    df %>% 
+    ggplot(aes(sample = model %>% residuals))+
+    stat_qq()+
+    ggtitle("QQ plot of residuals")+
+    xlab("")+
+    ylab("")
+  
+  Res_fac <- df %>% 
+    ggplot()+
+    geom_point(aes(y = model %>% residuals(), x = df[,factor] ))+
+    ggtitle("Residuals VS factor levels") +
+    xlab("Residuals")+
+    ylab("Factor levels")
+
+  Res_fit <- df %>% 
+    ggplot(aes(y = model %>% residuals(), x = model %>% predict))+
+    geom_point()+
+    ggtitle("Residuals VS fitted")+
+    xlab("Residuals")+
+    ylab("fitted")
+  
+  Res_eu <- df %>% 
+    ggplot(aes(y = model %>% residuals(), x = seq(nrow(df))))+
+    geom_point()+
+    ggtitle("Residuals VS experimental unit")+
+    xlab("Residuals")+
+    ylab("Experimental unit")
+  
+  multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+  
+  multiplot(qq_plot, Res_fac, Res_fit, Res_eu, cols=2)
+  
+}
+
+bread_example_lm <- daewr::bread %>% lm(formula = height~time)
+Validate_assumptions(df = daewr::bread,
+                     model = bread_example_lm,
+                     factor = "time",
+                     response = "height")
+```
+
+Now that our tests are automated let's see the poling data:
+
+```{r,eval=FALSE}
+Validate_assumptions(df = daewr::teach, model = mod_full)
+```
+
+
+
+
+
+
+
+
 
