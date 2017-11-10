@@ -1,6 +1,6 @@
 The most promising type of DoE for our purposes__
   Response Surface Method Designs
-    These are special designs that are used to determine the settings of the factors to achieve an optimum value of the response.
+    These are special designs that are used to determine the settings of the factors to achieve an optimum value of the response. We can run this after an initial screening experiment with say 2 factorial design.
 
   Benchmark DoE approach is full factorial design - how does surface response design trump this method in terms of costs, speed and the desired outcome (treatment effect)
 
@@ -145,3 +145,6 @@ Website with datasets__
 
 Link to datasets__
  http://bcs.wiley.com/he-bcs/Books?action=resource&bcsId=10790&itemId=1119320933&resourceId=42686
+
+Research book_
+  Design of experiments in R - John Lawson

@@ -16,9 +16,17 @@ if(!require(tidyverse)){
 if(!require(MASS)){
   install.packages("MASS")
 }
+if(!require(agricolae)){
+  install.packages("agricolae")
+}
+if(!require(multcomp)){
+  install.packages("multcomp")
+}
   library(daewr)
   library(tidyverse)
   library(MASS)
+  library(agricolae)
+  library(multcomp)
 ```
 
 # Introduction
@@ -159,7 +167,12 @@ RCD - row-column design
 
 ## Study factor effects
 
+We start off with the objective of studying factor effects on treatment response. We will illustrate the basic workflows using a simple 1 factor CRD with 1 response.
+
 ### Completely randomized design (CRD)
+
+![](Pictures/CRD.png)
+
 
 In completely randomized designs we consider only a single factor. For each possible state of this factor we have a treatment or group. The total number of experimental units n is equal to the number of treatments * the number of replications in of each treatment.
 
@@ -173,6 +186,8 @@ By randomly assigning treatments and replications we `balance out` the effects w
 Having two independant tasters taste/rate the same cake does not mean you have two replicates of that particular cake's treatment.  
 
 #### Example
+
+**Bread dough experiment**
 
 Test bread rise height caused by factor time:  
 
@@ -235,11 +250,85 @@ So we can see that the p-value here is the same as the p-value in the lm() summa
 
 Of course, using a lm() model assumes linearity and we should validate this assumed relationship between time and height:
 
+#### Assumptions validation function
+
 ```{r}
-qqnorm(y = bread_example %>% lm(formula = height~time) %>% residuals)
+Validate_assumptions <- function(df, formula_ = NULL, model, factor, response) {
+  qq_plot <- 
+    df %>% 
+    ggplot(aes(sample = model %>% residuals))+
+    stat_qq()+
+    ggtitle("QQ plot of residuals")+
+    xlab("")+
+    ylab("")
+  
+  Res_fac <- df %>% 
+    ggplot()+
+    geom_point(aes(y = model %>% residuals(), x = df[,factor] ))+
+    ggtitle("Residuals VS factor levels") +
+    xlab("Residuals")+
+    ylab("Factor levels")
+
+  Res_fit <- df %>% 
+    ggplot(aes(y = model %>% residuals(), x = model %>% predict))+
+    geom_point()+
+    ggtitle("Residuals VS fitted")+
+    xlab("Residuals")+
+    ylab("fitted")
+  
+  Res_eu <- df %>% 
+    ggplot(aes(y = model %>% residuals(), x = seq(nrow(df))))+
+    geom_point()+
+    ggtitle("Residuals VS experimental unit")+
+    xlab("Residuals")+
+    ylab("Experimental unit")
+  
+  multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+  
+  multiplot(qq_plot, Res_fac, Res_fit, Res_eu, cols=2)
+  
+}
+
+Validate_assumptions(df = bread_example,model =  bread_example %>% lm(formula = height~time), factor = "time") 
+
+# qqnorm(y = bread_example %>% lm(formula = height~time) %>% residuals)
 ```
 
-In this case we do seem to have a fairly normal response relationship but with som variability in the lower corner. Consider that we only have 12 points.
+In this case we do seem to have a fairly normal response relationship but with some variability in the lower corner. Consider that we only have 12 points.
 
 A more serious violation of assumption is heterogeneity of variances. In general when the linearity assumption is violated so will the homogeniety of variances assumption. To remedy this we can apply a transformation to the data to reconsile the linearity assumption.
 
@@ -305,7 +394,7 @@ qqnorm(y = bread_example_lognormal %>% lm(formula = height~time) %>% residuals()
 
 In this case we seem to fit the tail distribution better...  
 
-And if we look at the hypothesis test with the now normally distributed data:
+And if we look at the hypothesis test with the now more? normally distributed errors:
 
 ```{r}
 bread_example_lognormal %>% aov(formula = height~time) %>% summary
@@ -424,99 +513,107 @@ We can see that on average the 3rd treatment here would outperform the rest of t
 
 **Test for assumption violations**
 
-We can again repeat the usual battery of tests but let's first automate this these tests to make it easy:  
+We can't repeat the usual battery of tests here since we are dealing with a categorical response and the idea of residual error should be defined differently from say  $y-\hat{y}$.
 
-#### Assumptions validation function
 
-```{r}
-Validate_assumptions <- function(df, formula_ = NULL, model, factor, response) {
-  qq_plot <- 
-    df %>% 
-    ggplot(aes(sample = model %>% residuals))+
-    stat_qq()+
-    ggtitle("QQ plot of residuals")+
-    xlab("")+
-    ylab("")
-  
-  Res_fac <- df %>% 
-    ggplot()+
-    geom_point(aes(y = model %>% residuals(), x = df[,factor] ))+
-    ggtitle("Residuals VS factor levels") +
-    xlab("Residuals")+
-    ylab("Factor levels")
+<!-- bread_example_lm <- daewr::bread %>% lm(formula = height~time) -->
+<!-- Validate_assumptions(df = daewr::bread, -->
+<!--                      model = bread_example_lm, -->
+<!--                      factor = "time", -->
+<!--                      response = "height") -->
 
-  Res_fit <- df %>% 
-    ggplot(aes(y = model %>% residuals(), x = model %>% predict))+
-    geom_point()+
-    ggtitle("Residuals VS fitted")+
-    xlab("Residuals")+
-    ylab("fitted")
-  
-  Res_eu <- df %>% 
-    ggplot(aes(y = model %>% residuals(), x = seq(nrow(df))))+
-    geom_point()+
-    ggtitle("Residuals VS experimental unit")+
-    xlab("Residuals")+
-    ylab("Experimental unit")
-  
-  multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-
-  numPlots = length(plots)
-
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-
- if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
-  
-  multiplot(qq_plot, Res_fac, Res_fit, Res_eu, cols=2)
-  
-}
-
-bread_example_lm <- daewr::bread %>% lm(formula = height~time)
-Validate_assumptions(df = daewr::bread,
-                     model = bread_example_lm,
-                     factor = "time",
-                     response = "height")
-```
-
-Now that our tests are automated let's see the poling data:
+In order to run the usual battery of validity tests we need the residuals of the fitted model. However, this is a categorical response experiment.
 
 ```{r,eval=FALSE}
-Validate_assumptions(df = daewr::teach, model = mod_full)
+# Validate_assumptions(df = daewr::teach, model = mod_full)
 ```
 
+#### Deternining the number of replicates
 
+**Bread dough experiment**
 
+The idea of `practical difference` is important here. If the practitioner wants to monitor any difference in `cell means` larger than say 3 inches he would use the `Fpower1` function with $\Delta = 3$.
 
+`Fpower1` calculates the power of the 1 way anova F distribution
 
+Now we specify the number of replications we would like to calculate the power for given we know the variance of the experimental error $\hat{\sigma}^2$ 
 
+If we assume the naive OLS this value is:  
 
+```{r}
+daewr::bread %>% lm(formula = height~time) %>% residuals() %>% var
+```
 
+Let's assume the value $\hat{\sigma}^2 = 1.917614$
 
+```{r}
+power <- Fpower1(alpha = rep(0.05, 6-2+1),
+                 nlev = 3,
+                 nreps = 2:6, 
+                 Delta = 3,
+                 sigma = sqrt(1.917614)
+                )
+power
+```
+
+This table then shows us that with as many as 6 replicates per treatment we can detect with ~87% accuracy a `cell mean` shift of 3 inches.  
+
+Based on the affordability in terms of time and money we can limit the factor under investigation using screening designs and perhaps limit the number of factors such that we get enough power out of the affordable number of replications.  
+
+#### Choosing optimal treatments
+
+In general it is possible to construct hypothesis tests of comparisons before the design of experiments is carried out and responses are recorded but we will not focus on that here.
+
+Instead we will assume the practitioner is interested in comparing treatments to one another in an unbiased way or compared to the current control treatment being used.
+
+#### Unplanned Comparisons
+
+When comparing specific treatments with one another _after_ the experiment has been designed and carried out we must adjust for bias.
+
+In R we can use the `TukeyHSD` function to compare cell mean shifts between different treatments  
+
+**Sugarbeet dataset**
+
+This dataset is another CRD design. Let's illustrate the TukeyHSD function here:  
+
+```{r}
+Sugerbeet_anova <- aov(yield ~ treat, data = daewr::sugarbeet)
+
+Sugerbeet_anova
+
+Sugerbeet_TukeyHSD <- TukeyHSD(Sugerbeet_anova, ordered = TRUE)
+
+Sugerbeet_TukeyHSD
+```
+
+Here we can see that treatments `C and D` do not reject the null hypothesis that they have different cell means. However, the test also shows that no other treatments are considered the same and all reject at 5%. 
+
+Based purely on the confidence interval showed we could conclude that treatments `C and D` appear to be the most optimal if a higher mean in the response was required.
+
+This function does not explicitly tell us what those means are, merely their differences.
+
+**Another, more conservative, function we can use is the `SNK.test` function from the agricolae package**:  
+
+```{r}
+Sugarbeet_SNK <- SNK.test(Sugerbeet_anova, "treat", alpha = 0.05)
+
+Sugerbeet_anova
+```
+
+This time we can clearly see the treatment means along with their summary statistics. As for rejection of the null hypothesis we can compare the `M` column in the groups output. Treatments that did not reject the null would have the same letters here.  
+
+**Comparison to the current control treatment**
+
+To compare different treatments to the current control treatment we can use the function `glht` from the multcomp package  
+
+**The glht function assumes that the 1st factor level is in fact the control treatment**  
+
+```{r}
+Sugarbeet_glht <- glht(Sugerbeet_anova,linfct = mcp(treat = "Dunnett"), alternative = "greater")
+
+Sugarbeet_glht %>% summary
+```
+
+By specifying `alternative = "greater"` we can test the null hypothesis of the `cell mean` being greater than that of the control treatment using the `Dunnett` method.  
+
+Here we can again see that treatments `C and D` are superior to the control treatment `A`.
