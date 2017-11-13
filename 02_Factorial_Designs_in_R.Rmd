@@ -1,0 +1,312 @@
+---
+title: "02 Factorial Designs in R"
+author: "Stefan"
+date: "13 November 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require(daewr)){
+  install.packages("daewr")
+}
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+}
+if(!require(MASS)){
+  install.packages("MASS")
+}
+if(!require(agricolae)){
+  install.packages("agricolae")
+}
+if(!require(multcomp)){
+  install.packages("multcomp")
+}
+if(!require(car)){
+  install.packages("car")
+}
+  library(daewr)
+  library(tidyverse)
+  library(MASS)
+  library(agricolae)
+  library(multcomp)
+  library(car)
+```
+
+# Introduction
+
+This document will cover the procedures required when dealing with multiple factors in a Design of Experiments (DoE). This is a follow up of 01_Completely_randomized_design_in_R.  
+
+Since measuring the interactions between many factors that in themselves may have many levels the design can grow exponentialy in size.  
+
+![](Pictures/Intro_factorial_design.jpg)
+
+Based on the work:  
+_Lawson, John. Design and Analysis of Experiments with R. Chapman and Hall/CRC, 20141217. VitalBook file._
+
+## Basics
+
+You might be tempted to just vary each variable one at a time and try to draw inference from the results but the following picture nicely illustrates the shortcomings of this approach:  
+
+![](Pictures/One_at_a_time_vs_factorial.png)
+
+Using a very simple example of aircraft flight times measured via body width and wing size one might look at the following plot and assume the larger the body the better:  
+
+![](Pictures/Flight_time_vs_body_width.png)
+
+In reality there is a co-dependant relationship between the body width and the wing span. In order to visualize the optimal setting we must vary these parameters together, not only one at a time:  
+
+
+![](Pictures/Body_width_vs_wing_span.png)
+
+In this visualization of factorial interactions between the 2 variables we can clearly see that there is an optimal combination of variables.  
+
+## Creating a two factor factorial plan 
+
+Let's see how factorial plans can be set up in R:  
+
+We will follow through with the example of testing flight times as a response to body width and wing length of an airplane. To set up factorial combinations for these variables we call the `expand.grid` function  
+
+```{r}
+factorial_design_example <- expand.grid(BW = seq(3,5,length.out = 5),
+                                        WL = seq(4,6, length.out = 3))
+
+factorial_design_example
+```
+
+If we wanted to create 3 replication in each we can either add this in the `expand.grid` or we can duplicate the entire set 3 times:  
+
+```{r}
+factorial_design_example <- expand.grid(BW = seq(3.25,4.25,length.out = 3),
+                                        WL = seq(4,6, length.out = 3),
+                                        replicate_nr = 1:2)
+
+factorial_design_example
+```
+
+Now we randomize the design:  
+
+```{r}
+factorial_design_example <- factorial_design_example[sample(nrow(factorial_design_example)),]
+
+factorial_design_example
+```
+
+We don't want to include `replicate` as a factor so we can remove it if it is no longer useful:  
+
+```{r}
+factorial_design_example <- factorial_design_example[,-3]
+factorial_design_example %>% head
+```
+
+## Hypothesis testing - factorial designs
+
+Similar to the CRD case our design relationship between the response variable and the factors can be represented mathematically:  
+
+**Cell mean**  
+$y_{i,j,k} = \mu_{i,j} + \epsilon_{i,j,k}$
+
+**Effects model**  
+$y_{i,j,k} = \mu + \alpha_i + \beta_j + (\alpha.\beta)_{i,j} + \epsilon_{i,j,k}$
+
+When we want to investigate the treatment effects of the 2 factor factorial design the effects model is used when we fit anova models to the design matrix.  
+As with the CRD; internal calls to anova/lm() will use the 1st observation in the design matrix for each factor as a baseline. The following matrix representation illustrates how the sum of squares is minimised in R:  
+
+![](Pictures/Factorial_design_matrix_solution.png)
+
+When interpreting the summary outputs of these anova models in R the following picture may be very helpful:  
+
+![](Pictures/Anova_2_factor_factorial.png)
+
+We can evaluate the effect for the interaction terms as well as the factors using the p-values in this table. Again rejecting the null hypothesis implies that there is some effect in choosing specific factor levels/interactions.  
+
+### Anova example
+
+For this example we will load some data from the package `daewr` on fuel emissions.  
+
+Let's see this in action:  
+
+```{r}
+anova_data <- daewr::COdata
+
+anova_model <- aov(CO ~ Eth * Ratio, data = anova_data)
+
+anova_model %>% summary
+```
+
+Interesting, so we can see that both the factors and their interaction reject the null hypothesis that they have no effect on the response (carbon monoxide).  
+### Investigate treatment means
+
+If we wanted to compare the treatment means we can use the `model.tables` function with `type = "means"`:
+
+```{r}
+anova_model %>% model.tables(type = "means", se = TRUE)
+```
+
+And we can also investigate the effects by setting `type = "effects"`:  
+
+```{r}
+anova_model %>% model.tables(type = "effects", se = TRUE)
+
+```
+
+### Interaction plots
+
+It is fairly simple to plot the interactions between variables across factor levels
+
+```{r}
+anova_data %>% 
+  ggplot(aes(x = Eth, y = CO))+
+  geom_line(aes(group = Ratio, color = Ratio))+
+  ggtitle("CO emissions vs Ethanol across factor levels")
+  
+```
+
+This illustrates that inference about a causal relationship should not be made without context about the interactions wit other factors and their levels
+
+Let's repeat for Ratio vs CO:  
+
+```{r}
+anova_data %>% 
+  ggplot(aes(x = Ratio, y = CO))+
+  geom_line(aes(group = Eth, color = Eth))+
+  ggtitle("CO emissions vs Ratio across factor levels")
+```
+
+## Determining the number of replicates
+
+Again, as with the CRD designs, we must find the amount of replicates that will give us sufficient power in correctly rejecting the null hypothesis. 
+
+In order to just that we use the `daewr::Fpower1` function. the `1` means it is a one sided test. 
+
+We assume we have 4 levels on both factors.  
+
+In order to use this function we need to specify what measure of change we would like to measure/catch in the repsonse with power of x%. We also need to specify the amount of variance present.
+
+To calculate the amount of variance we can use:
+
+```{r}
+sigma <- anova_model %>% residuals() %>% var %>% sqrt()
+sigma
+```
+
+And if we assume we want to measure a $\Delta = 1$ we can measure the replications required with:  
+
+```{r}
+power_table <-  daewr::Fpower1(alpha = 0.05, nlev = 16, nreps = seq(40,150,length.out = 15),Delta = 1, sigma = sigma)
+
+power_table
+```
+
+So based on the current data, without any screening data we required roughly ~100 replications of each treatment to reach 80% power (if we want to notice/reject based on a 1 unit change in cell means).  
+
+If we wanted to notice a 1 unit change in the marginal distributions we can use the `Fpower2` function for the 2 factors:
+
+```{r}
+power_table <-  daewr::Fpower2(alpha = 0.05, nlev = c(4,4), nreps = seq(10,50,length.out = 15),Delta = 1, sigma = sigma)
+
+power_table
+```
+
+Using these power tests we can determine how many replicants we need to answer which questions. If we were only interested in investigating the behaviour of the marginal distributions we would inevitably require less replications than if we needed to test hypotheses on the overall cell means. 
+
+How about our assumptions? Let's call our validation script on each of the 2 factors:  
+
+**Eth**
+
+```{r, echo=FALSE,results=FALSE,include=FALSE}
+source(knitr::purl("01_Completely_randomized_design_in_R.Rmd"))
+```
+
+```{r}
+
+Validate_assumptions(model = anova_model,factor = "Eth",df = daewr::COdata)
+```
+
+**Ratio**
+
+```{r}
+Validate_assumptions(model = anova_model,factor = "Ratio",df = daewr::COdata)
+```
+
+These plots don't show anything too wild, so this should bolster some confidence.  
+
+## Unequal number of replicants
+
+Up until now we have always had an equal number of replicants in all our treatments. How does the analysis change when we introduce unequal replicants?  
+
+To start, let's randomly remove some replicants from our current working example:  
+
+### Data with unqeual number of replicants
+
+```{r}
+anova_data_unequal <- 
+   sample_n(anova_data,size = 15, replace = FALSE)
+
+anova_data_unequal %>% tbl_df()
+```
+
+Now visualize number of replicants
+
+```{r}
+anova_data_unequal %>% 
+  group_by(Eth,Ratio) %>% 
+  tally
+```
+
+Lets compare that to the original
+
+```{r}
+anova_data %>% 
+  group_by(Eth,Ratio) %>% 
+  tally
+```
+
+Great, so we removed 3 replicants randomly from the design. This may happen when we find out some of our data points are invalid but we believe the overall DoE data is still in good standing so we don't want to waste time/money redoing any work.  
+
+#### Type 1 vs 2 vs 3 Sum of Squares
+
+When data is unbalanced it is usual practice to use either type II or type III sum of squares. But what is the difference?
+
+from <https://mcfromnz.wordpress.com/2011/03/02/anova-type-iiiiii-ss-explained/>  
+
+Type I:  
+- $SS(A) for factor A$   
+- $SS(B|A) for factor B$   
+- $SS(AB|A, B) for interaction AB$  
+
+Notice; type I sum of squares will introduce a bias for factor A since it does not marginalize over factor B, even though B does in fact marginalize over A  
+
+Type II:  
+- $SS(A|B) for factor A$   
+- $SS(B|A) for factor B$   
+
+With Type II we do not have this bias, but we assume there is **no significant interaction**! This assumption grants us more power with the F-test (reducing required replications and improving confidence) if our assumption is correct.  
+
+Type III:  
+- $SS(A|B,AB) for factor A$   
+- $SS(B|A,AB) for factor B$   
+
+With Type III we do measure the interaction, however we have less power in this case and when the interaction exists we can argue the marginal hypothesis of cell mean shifts are not as informative.  
+
+#### What next?
+
+Awesome, we know that we have a significant interaction effect from the F-test so we should use type III anova:  
+
+```{r}
+lm_CO_emitions_unbalanced <- 
+  lm(data = anova_data_unequal,
+     CO~Eth*Ratio,
+     contrasts = list(Eth = contr.sum,
+                      Ratio = contr.sum)
+     )
+
+anova_type_III <- lm_CO_emitions_unbalanced %>% Anova(type="III")
+
+anova_type_III
+```
+
+
+
+
+

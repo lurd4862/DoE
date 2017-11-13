@@ -1,0 +1,15 @@
+Model Questions:
+- Fixed factors to investigate?
+- Best screening design?
+- Best design? (is there a specific design that would be most appropriate for our type of data?)
+- Exact specification of response variables (continuous, categorical etc.)
+- Specific null hypothesis or just treatment effect vs. no treatment effect (TE)
+- Investigating interaction effects / higher order effects?
+- Choice of predictive model (would depend on the data and hypothesis we wish to test)
+- Discussion around blocking variables (variables that can lead our questions around treatment effect, e.g. should we block spend to allow comparison of treatments within spend bands - block size?)
+- Are we interested in optimizing treatment factor selection? Or just ranking of treatment effectiveness within blocks?
+    Particularly if the treatments are allocated based on budget and the various treatments cannot be varied in terms of their current factor levels
+
+Design Questions:
+- Can we ensure that randomization/blocking is executed properly
+- Can we capture all the factors relevant to personalization engine
