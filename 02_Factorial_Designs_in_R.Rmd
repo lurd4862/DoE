@@ -25,12 +25,20 @@ if(!require(multcomp)){
 if(!require(car)){
   install.packages("car")
 }
+if(!require(lsmeans)){
+  install.packages("lsmeans")
+}
+if(!require(rsample)){
+  install.packages("rsample")
+}
   library(daewr)
   library(tidyverse)
   library(MASS)
   library(agricolae)
   library(multcomp)
   library(car)
+  library(lsmeans)
+  library(rsample)
 ```
 
 # Introduction
@@ -60,6 +68,12 @@ In reality there is a co-dependant relationship between the body width and the w
 ![](Pictures/Body_width_vs_wing_span.png)
 
 In this visualization of factorial interactions between the 2 variables we can clearly see that there is an optimal combination of variables.  
+
+## Roadmap
+
+In this post we will briefly cover Completely Randomized Factorial Designs (CRFD)
+
+![](Pictures/CRFD.png)
 
 ## Creating a two factor factorial plan 
 
@@ -135,6 +149,7 @@ anova_model %>% summary
 ```
 
 Interesting, so we can see that both the factors and their interaction reject the null hypothesis that they have no effect on the response (carbon monoxide).  
+
 ### Investigate treatment means
 
 If we wanted to compare the treatment means we can use the `model.tables` function with `type = "means"`:
@@ -156,10 +171,13 @@ It is fairly simple to plot the interactions between variables across factor lev
 
 ```{r}
 anova_data %>% 
+  group_by(Eth,Ratio) %>% 
+  summarise(CO = mean(CO)) %>% 
   ggplot(aes(x = Eth, y = CO))+
   geom_line(aes(group = Ratio, color = Ratio))+
   ggtitle("CO emissions vs Ethanol across factor levels")
-  
+
+
 ```
 
 This illustrates that inference about a causal relationship should not be made without context about the interactions wit other factors and their levels
@@ -168,6 +186,8 @@ Let's repeat for Ratio vs CO:
 
 ```{r}
 anova_data %>% 
+  group_by(Eth,Ratio) %>% 
+  summarise(CO = mean(CO)) %>% 
   ggplot(aes(x = Ratio, y = CO))+
   geom_line(aes(group = Eth, color = Eth))+
   ggtitle("CO emissions vs Ratio across factor levels")
@@ -271,21 +291,21 @@ When data is unbalanced it is usual practice to use either type II or type III s
 from <https://mcfromnz.wordpress.com/2011/03/02/anova-type-iiiiii-ss-explained/>  
 
 Type I:  
-- $SS(A) for factor A$   
-- $SS(B|A) for factor B$   
-- $SS(AB|A, B) for interaction AB$  
+- $SS(A) \ for \  factor \  A$   
+- $SS(B|A) \  for \  factor \ B$   
+- $SS(AB|A, B) \ for \ interaction \  AB$  
 
 Notice; type I sum of squares will introduce a bias for factor A since it does not marginalize over factor B, even though B does in fact marginalize over A  
 
 Type II:  
-- $SS(A|B) for factor A$   
-- $SS(B|A) for factor B$   
+- $SS(A|B) \  for \  factor \  A$   
+- $SS(B|A) \  for \  factor \  B$   
 
 With Type II we do not have this bias, but we assume there is **no significant interaction**! This assumption grants us more power with the F-test (reducing required replications and improving confidence) if our assumption is correct.  
 
 Type III:  
-- $SS(A|B,AB) for factor A$   
-- $SS(B|A,AB) for factor B$   
+- $SS(A|B,AB)  \ for \  factor \  A$   
+- $SS(B|A,AB)  \ for \  factor \  B$   
 
 With Type III we do measure the interaction, however we have less power in this case and when the interaction exists we can argue the marginal hypothesis of cell mean shifts are not as informative.  
 
@@ -306,7 +326,184 @@ anova_type_III <- lm_CO_emitions_unbalanced %>% Anova(type="III")
 anova_type_III
 ```
 
+As before let's predict the cell means, however; since we do not have balanced replication we use marginal cell means instead. This is the unbiased estimate of the cell means under unbalanced replication:  
+
+#### Treatment mean
+
+```{r}
+anova_data_unequal %>%
+  # mutate_if(is.factor, as.numeric) %>%
+  mutate(prediction = lm_CO_emitions_unbalanced %>% predict) %>%
+  group_by(Eth, Ratio) %>%
+  summarise(treatment_mean = mean(prediction))
+
+```
+
+#### Eth marginal cell mean
+
+```{r}
+  anova_data_unequal %>%
+  # mutate_if(is.factor, as.numeric) %>%
+  mutate(prediction = lm_CO_emitions_unbalanced %>% predict) %>%
+  group_by(Eth) %>%
+  summarise(Eth_cell_mean = mean(prediction))
+```
+
+#### Ratio marginal cell mean
+
+```{r}
+  anova_data_unequal %>%
+  # mutate_if(is.factor, as.numeric) %>%
+  mutate(prediction = lm_CO_emitions_unbalanced %>% predict) %>%
+  group_by(Ratio) %>%
+  summarise(Ratio_cell_mean = mean(prediction)) 
+  
+```
+
+Alternatively we can use the `lsmeans` package which does these calculations for us and also calculates other centrality estimates such as standard error and confidence intervals:  
+
+#### lsmeans for Eth
+
+```{r}
+lsmeans(lm_CO_emitions_unbalanced, ~Eth)
+```
+
+#### lsmeans for Ratio
+
+```{r}
+lsmeans(lm_CO_emitions_unbalanced, ~Ratio)
+```
+
+## Multiple factor factorial designs (CRFD)
+
+As with the factorial designs versus one-at-a-time experiments, CRFD's are more efficient than running multiple 2 factor designs.  
+
+With CRFD we can measure the interactions between groups of factors.  
+
+### Example - website campaign design
+
+In a web campaign every element we decide to show and interact with a user is a design choice that may influence how they respond. To measure the effects of different layouts/treatments we can use CRFD experiments.  
+In this example from the `daewr` package we have $3\times3\times2\times2=36$ factor level interactions.
+
+#### Load the data
+
+```{r}
+web_data <- daewr::web
+
+web_data %>% head
+```
+
+In this example the user could opt in so our response is binomial. We also notice unequal (barely) replications between treatments.
+
+To do our hypothesis testing here we therefore use a `glm()`
+
+```{r}
+# web_glm <- glm(formula = visitors~signup,
+web_glm <- glm(formula = cbind(signup,visitors-signup)
+                ~ A*B*C*D,
+                data = web_data,
+                family = binomial()
+                )
+web_glm
+```
+
+From the glm output we notice the 0 residual and null deviance. That is because we assume a distribution for the group of responses in each treatment (in which case we essentially observe one replication per treatment with varying `n`)  
+
+If, however, we update the model with the following:  
+
+```{r}
+anova(update(web_glm,
+             .~ A + B + A:B + C + A:C + B:C + A:B:C + D + A:D + B:D + A:B:D + C:D + A:C:D + B:C:D + A:B:C:D),
+      test="Chisq"
+     )
 
 
+```
+
+We can now measure the p-values for each of the listed interactions. Clearly each treatment had an effect but only the interaction between A, C and D had any effect.  
+
+#### Interaction plots
+
+Again we would like to visualize the interaction effect between a factor and the response given we know one of the other factors (like with the 2 factorial design). This time we have more replications to work with so we have more visualization options:  
+
+```{r}
+web_data %>% 
+  mutate(Prob_of_signup = signup/visitors) %>% 
+  ggplot(aes(x = A, y = Prob_of_signup))+
+  geom_point(aes(group = B, color = B))+
+  geom_violin(aes(fill = B))+
+  geom_boxplot(width=.1)+
+  facet_wrap(~B)+
+  geom_smooth()+
+  ggtitle("Interaction (Signup~A|B)")
+
+```
+
+This gives a reasonable visualization of the categorical independant variables with the continuous response variable.  
+
+If we had continuous factors being measured we could use a `geom_smooth` ggplot function to visualize the effect over a scatterplot.  
+
+**Simplified**  
+Another way of visualizing this is to calculate the averages within treatments using R's sql equivalent `dplyr` and %>%  that into ggplot like this:  
+
+```{r}
+web_data %>% 
+  mutate(Prob_of_signup = signup/visitors) %>% 
+  group_by(A,B) %>% 
+  summarise(mean_A = mean(Prob_of_signup)) %>% 
+    ggplot(aes(x = A, y = mean_A))+
+  geom_point(aes(group = B, color = B))+
+  # geom_smooth(aes(group = B, color = B))+
+  geom_line(aes(group = B, color = B))+
+  facet_wrap(~B)+
+  ggtitle("Interaction (Signup~A|B)")
+
+```
+
+<!-- We can repeat this process for however many factors. Let's make a function to do this when we have discrete factor levels like we do now:   -->
+
+<!-- **Violin_interaction**   -->
+
+<!-- ```{r} -->
+<!-- Violin_interaction <- function(design_matrix,response,factor,facet_factor) { -->
+
+<!--   # response <- enquo(response) -->
+<!--   # factor <- enquo(factor) -->
+<!--   # facet_factor <- enquo(facet_factor) -->
+
+
+<!--   # design_matrix %>% -->
+<!--   # ggplot(aes(x = (!!factor), y = (!!response) ))+ -->
+<!--   # geom_point(aes(group = (!!facet_factor), color = (!!facet_factor) ))+ -->
+<!--   # geom_violin(aes(fill = (!!facet_factor) ))+ -->
+<!--   # geom_boxplot(width=.1)+ -->
+<!--   # facet_wrap(~(!!facet_factor))+ -->
+<!--   # geom_smooth() -->
+
+<!--   design_matrix %>% -->
+<!--   ggplot(aes_(x = factor, y = response))+ -->
+<!--   geom_point(aes_(group = facet_factor, color = facet_factor))+ -->
+<!--   geom_violin(aes_(fill = facet_factor))+ -->
+<!--   geom_boxplot(width=.1)+ -->
+<!--   facet_wrap(~facet_factor)+ -->
+<!--   geom_smooth() -->
+
+<!--     design_matrix %>% -->
+<!--   ggplot(aes(x = !!factor, y = !!response))+ -->
+<!--   geom_point(aes_(group = facet_factor, color = facet_factor)) -->
+<!-- } -->
+<!-- ``` -->
+
+<!-- Now we can call this as follows:   -->
+
+<!-- ```{r} -->
+<!-- #add our response variable -->
+<!-- Violin_interaction(design_matrix = web_data %>%  -->
+<!--   mutate(Prob_of_signup = signup/visitors) -->
+<!--   ,response = "Prob_of_signup" -->
+<!--   ,factor = "A" -->
+<!--   ,facet_factor = "B" -->
+<!--   ) -->
+<!-- ``` -->
 
 
